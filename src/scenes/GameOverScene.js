@@ -3,7 +3,8 @@ export default class GameOverScene extends Phaser.Scene {
         super('gameOver');
     }
     init(data) {
-        this.score = data.score || 0;
+        this.score = data.score 
+        this.coinsCollected = data.coinsCollected
     }
     create() {
         // Mensaje de Game Over
@@ -21,11 +22,17 @@ export default class GameOverScene extends Phaser.Scene {
             `Score: ${this.score}`,
             { fontFamily: 'Arial', fontSize: 36, color: '#ffffff' }
         ).setOrigin(0.5);
+        this.add.text(
+            this.cameras.main.centerX,
+            this.cameras.main.centerY + 30,
+            `Monedas recolectadas: ${this.coinsCollected}`,
+            { fontFamily: 'Arial', fontSize: 36, color: '#ffffff' }
+        ).setOrigin(0.5);
 
         // Opción para reiniciar el juego
         const restartText = this.add.text(
             this.cameras.main.width / 2,
-            this.cameras.main.height / 2 + 50,
+            this.cameras.main.height / 2 + 100,
             'Press SPACE to Restart',
             { fontFamily: 'Arial', fontSize: 24, color: '#ffffff' }
         );

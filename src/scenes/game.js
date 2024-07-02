@@ -19,6 +19,7 @@ export default class Game extends Phaser.Scene {
       this.isCameraFixed = false; // Variable para controlar si la cámara está fija
       this.spawningEnemies = false; // Nueva bandera para controlar el retraso en la generación de enemigos
       this.isPlayerInvulnerable = false; // Variable para controlar la invulnerabilidad del jugador
+      this.coinsCollected = 0; // Contador de monedas recolectadas
   }
 
   preload() {
@@ -72,6 +73,14 @@ export default class Game extends Phaser.Scene {
         'Score: 0', 
         { fontFamily: 'Arial', fontSize: 24, color: '#ffffff' }
        ).setOrigin(1, 0).setScrollFactor(0);
+    //contador de monedas
+    this.coinsCollected = 0;
+    this.coinText = this.add.text(
+    this.cameras.main.width - 20,
+    60,
+    'Coins: 0',
+    { fontFamily: 'Arial', fontSize: 24, color: '#ffffff' }
+    ).setOrigin(1, 0).setScrollFactor(0);
 
       // Contenedor para la barra de vida
       this.uiContainer = this.add.container();
@@ -89,6 +98,7 @@ export default class Game extends Phaser.Scene {
         this.physics.add.collider(this.player, this.enemigo);
     // Detección de colisión entre hitbox de ataque y enemigo
          this.physics.add.overlap(this.player, this.enemigo, this.handlePlayerEnemyCollision, null, this);
+
      // movimiento del enemigo hacia el jugador
         this.time.addEvent({
          delay: 2000, // Cada 2 segundos (ajustar según necesidad)
@@ -125,7 +135,12 @@ export default class Game extends Phaser.Scene {
           frameRate: 12,
           repeat: 0
       });
-
+      this.anims.create({
+        key: 'coin-spin',
+        frames: this.anims.generateFrameNames('coin', { start: 0, end: 5 }),
+        frameRate: 10,
+        repeat: -1
+    });
       // Configurar cámara
       this.myCam = this.cameras.main;
       this.myCam.startFollow(this.player);
@@ -158,8 +173,18 @@ export default class Game extends Phaser.Scene {
 startEnemyAttack(enemy) {
     if (enemy.active && !enemy.isAttacking) {
         enemy.isAttacking = true;
-        this.time.delayedCall(this.enemyAttackDelay, () => {
-            this.handleEnemyAttack(enemy);
+        // Aquí puedes implementar el tipo de ataque que desees, como crear una hitbox de ataque y reducir la salud del jugador
+        const attackHitbox = this.add.rectangle(enemy.x, enemy.y, 150, 100);
+        this.physics.world.enable(attackHitbox);
+        
+        this.physics.add.overlap(attackHitbox, this.player, () => {
+            if (enemy.active && enemy.isAttacking) {
+                this.reducePlayerHealth(1); // Reducir la vida del jugador al ser atacado por el enemigo
+            }
+            attackHitbox.destroy();
+        });
+        this.time.delayedCall(500, () => {
+            attackHitbox.destroy();
             enemy.isAttacking = false;
         });
     }
@@ -187,10 +212,10 @@ spawnEnemyWave() {
 
         if (position.x < this.player.x) {
             // Si el enemigo está a la izquierda del jugador
-            enemy = this.physics.add.sprite(position.x, position.y, 'enemigoY').setScale(4).setSize(50,23);
+            enemy = this.physics.add.sprite(position.x, position.y, 'enemigoY').setScale(4).setSize(35,23);
         } else {
             // Si el enemigo está a la derecha del jugador
-            enemy = this.physics.add.sprite(position.x, position.y, 'enemigo').setScale(1).setSize(130,150);
+            enemy = this.physics.add.sprite(position.x, position.y, 'enemigo').setScale(1).setSize(120,150);
         }
         
         enemy.health = 2; // Añadir propiedad de salud al enemigo
@@ -224,7 +249,6 @@ startEnemyWave() {
 }
 //colisiones entre jugador y enemigo
 handlePlayerEnemyCollision(player, enemy) {
-
     if (this.playerState === 'attack') {
         // Reducir la salud del enemigo al ser atacado por el jugador
         this.reduceEnemyHealth(enemy, 1);
@@ -233,7 +257,7 @@ handlePlayerEnemyCollision(player, enemy) {
             // Eliminar al enemigo
             enemy.destroy();
             // Incrementar el score
-            this.score += 10; // Puedes ajustar la cantidad de puntos que se acumulan por derrotar a un enemigo
+            this.score += 10; // Ajusta la cantidad de puntos según sea necesario
             this.scoreText.setText(`Score: ${this.score}`);
         }
         this.playerState = 'idle'; // Volver al estado idle después de atacar
@@ -245,7 +269,7 @@ handlePlayerEnemyCollision(player, enemy) {
 //ataque del enemigo
 handleEnemyAttack(enemy) {
     if (enemy.active && enemy.isAttacking) {
-        const attackHitbox = this.add.rectangle(enemy.x, enemy.y, 150, 100);
+        const attackHitbox = this.add.rectangle(enemy.x, enemy.y, 200, 100);
         this.physics.world.enable(attackHitbox);
         this.physics.add.overlap(attackHitbox, this.player, () => {
             if (enemy.active && enemy.isAttacking) {
@@ -260,13 +284,51 @@ handleEnemyAttack(enemy) {
 }
 //vida del enemigo (muerte)
 reduceEnemyHealth(enemy, amount) {
-    enemy.health -= amount; // Reducir la vida del enemigo
+    enemy.health -= amount;
+
     if (enemy.health <= 0) {
-        enemy.destroy(); // Eliminar al enemigo si su vida llega a cero
-        // Incrementar el score
-        this.score += 10; // Ajusta la cantidad de puntos según sea necesario
+        // Guarda la posición del enemigo antes de destruirlo
+        const posX = enemy.x;
+        const posY = enemy.y;
+        enemy.destroy();
+        // Generar una moneda con cierta probabilidad
+        if (Phaser.Math.RND.frac() < 0.5) { // Ejemplo: 50% de probabilidad
+            this.spawnCoin(posX, posY);
+        }
+        // Generar un corazón con cierta probabilidad
+        if (Phaser.Math.RND.frac() < 0.3) { // Ejemplo: 30% de probabilidad
+            this.spawnHeart(posX, posY);
+        }
+        this.score += 10;
         this.scoreText.setText(`Score: ${this.score}`);
     }
+}
+
+//recolectable de vida
+spawnHeart(x, y) {
+    const heart = this.physics.add.sprite(x, y, 'life').setScale(1);
+    this.physics.add.overlap(this.player, heart, () => {
+        if (this.currentHealth < this.maxHealth) {
+            this.currentHealth++; // Aumentar la salud del jugador si no está al máximo
+            this.updateHealthBar();
+        }
+        heart.destroy(); // Eliminar el corazón después de ser recogido
+    });
+    
+}
+spawnCoin(x, y) {
+    const coin = this.physics.add.sprite(x,y,'coin').setScale(1);
+    coin.anims.play('coin-spin'); // Animación de la moneda
+    this.physics.add.overlap(this.player, coin, () => {
+        this.score += 20; // Sumar puntos al recolectar una moneda
+        this.scoreText.setText(`Score: ${this.score}`);
+        this.coinsCollected++; // Contar las monedas recolectadas
+        coin.destroy(); // Eliminar la moneda después de ser recolectada
+        this.updateCoinCount();
+    });
+}
+updateCoinCount() {
+    this.coinText.setText(`Coins: ${this.coinsCollected}`);
 }
   update() {
       // Verificar si el jugador está atacando
@@ -310,9 +372,6 @@ reduceEnemyHealth(enemy, amount) {
         this.scene.start('gameOver'); // Cambiar a la escena de Game Over
     }
   }
-  handlePlayerDeath() {
-    this.scene.start('gameOver', { score: this.score });
-}
  //estado idle
   handleIdleState() {
       if (this.isPlayerMoving()) {
@@ -441,7 +500,6 @@ reducePlayerHealth(amount) {
     if (!this.isPlayerInvulnerable) {
         this.currentHealth = Math.max(this.currentHealth - amount, 0); // Asegurar que la salud no sea menor a 0
         this.updateHealthBar();
-
         if (this.currentHealth <= 0) {
             this.handlePlayerDeath();
         } else {
@@ -454,5 +512,7 @@ reducePlayerHealth(amount) {
     }
 }
 //variable de gameover
-
+handlePlayerDeath() {
+    this.scene.start('gameOver', { score: this.score, coinsCollected: this.coinsCollected });
+}
 }

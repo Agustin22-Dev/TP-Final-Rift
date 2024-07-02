@@ -12,6 +12,7 @@ export default class preload extends Phaser.Scene
         this.load.image('enemigoY','public/assets/enemigoY.png')
         this.load.tilemapTiledJSON('tilemap','public/tilemaps/escenario.json')
         this.load.image('title','public/assets/Title.png')
+        this.load.image('life','public/assets/hearth.png')
         this.load.spritesheet('idle','public/assets/idle.png',{
     frameWidth:96,
     frameHeight:96
@@ -32,6 +33,10 @@ export default class preload extends Phaser.Scene
         this.load.spritesheet('heart','public/assets/heart.png',{
             frameWidth:7,
             frameHeight:7
+        })
+        this.load.spritesheet('coin','public/assets/coin.png',{
+            frameWidth:60,
+            frameHeight:60
         })
     }
 
