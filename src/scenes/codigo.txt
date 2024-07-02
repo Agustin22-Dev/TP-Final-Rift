@@ -1,0 +1,208 @@
+export default class Game extends Phaser.Scene {
+  constructor() {
+      super('game');
+      this.playerState = 'idle';
+      this.lastDirection = 'right'; 
+      this.maxHealth = 6; // Vida máxima del jugador
+      this.currentHealth = this.maxHealth; // Vida actual del jugador
+      this.hearts = []; // Array para almacenar los corazones
+  }
+
+  preload() {
+      // Cargar recursos si es necesario
+  }
+
+  create() {
+      // Creación de elementos al inicio del juego
+      // Crear el mapa y sus capas
+      const map = this.make.tilemap({ key: 'tilemap' });
+      const tileset = map.addTilesetImage('Escenario (proceso)', 'calles');
+      map.createLayer('calle', tileset).setScale(1);
+      const edificios = map.createLayer('edificios', tileset).setScale(1);
+
+      // Configurar colisiones con los edificios
+      edificios.setCollisionByProperty({ collides: true });
+
+      // Debug de colisiones (opcional)
+      const debugGraphics = this.add.graphics().setAlpha(0.7);
+      edificios.renderDebug(debugGraphics, {
+          tileColor: null,
+          collidingTileColor: new Phaser.Display.Color(243, 234, 48, 255),
+          faceColor: new Phaser.Display.Color(40, 39, 37, 255)
+      });
+ // Crear barra de vida
+      this.createHealthBar();
+
+      // Contenedor para la barra de vida
+      this.uiContainer = this.add.container();
+      this.uiContainer.setScrollFactor(0); // Mantiene el contenedor fijo en la pantalla
+
+      // Crear jugador y configuración física
+      this.player = this.physics.add.sprite(500, 500, 'attack').setScale(1.9);
+      this.player.body.setSize(70, 70);
+      this.player.setCollideWorldBounds(true);
+
+      // Teclas de control
+      this.cursors = this.input.keyboard.createCursorKeys();
+      this.attackKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+
+      // Enemigo (solo como ejemplo, ajustar según necesidades)
+      this.enemigo = this.physics.add.image(700, 500, 'enemigo').setScale(1);
+      this.enemigo.body.setSize(200, 150);
+
+      // Animaciones del jugador
+      this.anims.create({
+          key: 'idle',
+          frames: this.anims.generateFrameNames('idle', { start: 0, end: 4 }),
+          frameRate: 5,
+          repeat: -1
+      });
+      this.anims.create({
+          key: 'right',
+          frames: this.anims.generateFrameNames('RunX', { start: 1, end: 14 }),
+          frameRate: 10
+      });
+      this.anims.create({
+          key: 'left',
+          frames: this.anims.generateFrameNames('runl', { start: 0, end: 13 }),
+          frameRate: 10
+      });
+      this.anims.create({
+          key: 'attackX',
+          frames: this.anims.generateFrameNames('attack', { start: 7, end: 13 }),
+          frameRate: 12,
+          repeat: 0
+      });
+      this.anims.create({
+          key: 'attackY',
+          frames: this.anims.generateFrameNames('attack', { start: 0, end: 6 }),
+          frameRate: 12,
+          repeat: 0
+      });
+
+      // Configurar cámara
+      this.myCam = this.cameras.main;
+      this.myCam.startFollow(this.player);
+      this.myCam.setBounds(0, 0, map.widthInPixels, 700, true);
+      this.physics.world.setBounds(0, 0, map.widthInPixels, 700);
+  }
+
+  update() {
+      // Verificar si el jugador está atacando
+      if (Phaser.Input.Keyboard.JustDown(this.attackKey)) {
+          if (this.playerState !== 'attack' && this.playerState !== 'move') {
+              this.playerState = 'attack';
+              this.handleAttackState();
+          }
+      }
+
+      // Actualizar el estado del jugador según el estado actual
+      switch (this.playerState) {
+          case 'idle':
+              this.handleIdleState();
+              break;
+          case 'move':
+              this.handleMoveState();
+              break;
+          case 'attack':
+              // No hace falta actualizar aquí mientras se maneje en el JustDown de arriba
+              break;
+      }
+  }
+
+  handleIdleState() {
+      if (this.isPlayerMoving()) {
+          this.playerState = 'move';
+          this.handleMoveState();
+      } else {
+          this.player.setVelocity(0);
+          this.player.anims.play('idle', true);
+      }
+  }
+
+  isPlayerMoving() {
+      return (
+          this.cursors.left.isDown ||
+          this.cursors.right.isDown ||
+          this.cursors.up.isDown ||
+          this.cursors.down.isDown
+      );
+  }
+
+  handleMoveState() {
+      if (this.cursors.left.isDown) {
+          this.player.setVelocityX(-160);
+          this.player.anims.play('left', true);
+          this.lastDirection = 'left';
+      } else if (this.cursors.right.isDown) {
+          this.player.setVelocityX(160);
+          this.player.anims.play('right', true);
+          this.lastDirection = 'right';
+      } else {
+          this.player.setVelocityX(0);
+          this.player.anims.play('idle', true);
+      }
+
+      if (this.cursors.up.isDown) {
+          this.player.setVelocityY(-160);
+          if (!this.cursors.left.isDown && !this.cursors.right.isDown) {
+              this.player.anims.play('up', true);
+              this.lastDirection = 'up';
+          }
+      } else if (this.cursors.down.isDown) {
+          this.player.setVelocityY(160);
+          if (!this.cursors.left.isDown && !this.cursors.right.isDown) {
+              this.player.anims.play('down', true);
+              this.lastDirection = 'down';
+          }
+      } else {
+          if (!this.cursors.left.isDown && !this.cursors.right.isDown) {
+              this.player.setVelocityY(0);
+          }
+      }
+
+      if (!this.isPlayerMoving()) {
+          this.playerState = 'idle';
+      }
+  }
+
+  handleAttackState() {
+      this.player.setVelocity(0);
+      if (this.lastDirection === 'right') {
+          this.player.anims.play('attackX', true).on('animationcomplete', () => {
+              this.playerState = 'idle';
+          });
+      } else if (this.lastDirection === 'left') {
+          this.player.anims.play('attackY', true).on('animationcomplete', () => {
+              this.playerState = 'idle';
+          });
+      } else {
+          this.playerState = 'idle';
+      }
+  }
+
+  createHealthBar() {
+      const numHearts = Math.ceil(this.maxHealth / 2); // Número de corazones necesarios
+      for (let i = 0; i < numHearts; i++) {
+          const heart = this.add.sprite(10 + i * 32, 10, 'heart', 0).setScale(4).setOrigin(0);
+          heart.setScrollFactor(0); // Mantiene los corazones fijos en la pantalla
+          this.hearts.push(heart);
+      }
+      this.updateHealthBar(); // Actualizar la barra de vida al crearla
+  }
+
+  updateHealthBar() {
+      const fullHearts = Math.floor(this.currentHealth / 2);
+      const halfHeart = this.currentHealth % 2;
+
+      for (let i = 0; i < this.hearts.length; i++) {
+          if (i < fullHearts) {
+              this.hearts[i].setFrame(0); // Corazón lleno
+          } else if (i === fullHearts && halfHeart === 1) {
+              this.hearts[i].setFrame(1); // Medio corazón
+          } else {
+              this.hearts[i].setFrame(2); // Corazón vacío
+          }
+      }
+  }
+}
