@@ -4,6 +4,7 @@
 export default class Game extends Phaser.Scene {
   constructor() {
       super('game');
+      //todos los arrays y indices necesarios para las funciones
       this.playerState = 'idle';
       this.lastDirection = 'right'; 
       this.maxHealth = 6; // Vida máxima del jugador
@@ -11,24 +12,39 @@ export default class Game extends Phaser.Scene {
       this.hearts = []; // Array para almacenar los corazones
       this.enemies = []; // Array para almacenar los enemigos
       this.spawnPoints = []; // Array para almacenar los puntos de aparición en la calle
-      this.enemyAttackDelay = 1000; // Retardo del ataque enemigo en milisegundos
+      this.enemyAttackDelay = 2000; // Retardo del ataque enemigo en milisegundos
       this.score = 0;
-
+      this.enemyIndex = 0; // Índice para controlar el orden de aparición de los enemigos
+      this.isWaveActive = false; // Variable para controlar si hay una oleada activa
+      this.isCameraFixed = false; // Variable para controlar si la cámara está fija
+      this.spawningEnemies = false; // Nueva bandera para controlar el retraso en la generación de enemigos
+      this.isPlayerInvulnerable = false; // Variable para controlar la invulnerabilidad del jugador
   }
 
   preload() {
-      // Cargar recursos si es necesario
+     //los recursos ya estan cargados en otra pagina
   }
+
+
 
   checkForEnemies() {
     this.enemies = this.enemies.filter(enemy => enemy.active); // Eliminar enemigos desactivados del array
-    if (this.enemies.length === 0) {
-        this.spawnEnemyWave(); // Generar una nueva oleada si no hay enemigos en pantalla
- 
+    if (this.enemies.length === 0 && !this.spawningEnemies) {
+        this.spawningEnemies = true; // Activar la bandera para evitar nuevas oleadas durante el retraso
+        this.time.delayedCall(3000, () => {
+            this.spawnEnemyWave(); // Generar una nueva oleada si no hay enemigos en pantalla
+            this.spawningEnemies = false; // Reiniciar la bandera después de generar los enemigos
+        });
     }
 }
   create() {
       // Creación de elementos al inicio del juego
+      //reinicio de las variables cada vez que se juega de nuevo
+      this.currentHealth = this.maxHealth; // Reiniciar la vida del jugador
+      this.enemies = [];
+      this.score = 0;
+      this.isWaveActive = false;
+      this.isCameraFixed = false;
       // Crear el mapa y sus capas
       const map = this.make.tilemap({ key: 'tilemap' });
       const tileset = map.addTilesetImage('Escenario (proceso)', 'calles');
@@ -140,7 +156,7 @@ export default class Game extends Phaser.Scene {
     });
 }
 startEnemyAttack(enemy) {
-    if (!enemy.isAttacking) {
+    if (enemy.active && !enemy.isAttacking) {
         enemy.isAttacking = true;
         this.time.delayedCall(this.enemyAttackDelay, () => {
             this.handleEnemyAttack(enemy);
@@ -149,12 +165,34 @@ startEnemyAttack(enemy) {
     }
 }
 //spawn de enemigos
+getSpawnPointsOnXAxis() {
+    const distance = 300; // Distancia desde el jugador a los puntos de spawn
+    const playerX = this.player.x;
+    const playerY = this.player.y;
+
+    return [
+        { x: playerX + distance, y: playerY }, // Derecha
+        { x: playerX - distance, y: playerY }  // Izquierda
+    ];
+}
 spawnEnemyWave() {
-    // Aparecer dos enemigos en puntos de aparición específicos
-    for (let i = 0; i < 2; i++) {
-        const spawnPoint = this.spawnPoints[i % this.spawnPoints.length];
-        const enemy = this.physics.add.image(spawnPoint.x, spawnPoint.y, 'enemigo').setScale(1);
-        enemy.body.setSize(100, 150);
+    const positions = [
+        { x: this.player.x - 300, y: this.player.y }, // A la izquierda del jugador
+        { x: this.player.x + 300, y: this.player.y }, // A la derecha del jugador
+    ];
+    // Aparecer cinco enemigos en puntos de aparición específicos
+    for (let i = 0; i < 5; i++) {
+        const position = positions[i % positions.length];
+        let enemy;
+
+        if (position.x < this.player.x) {
+            // Si el enemigo está a la izquierda del jugador
+            enemy = this.physics.add.sprite(position.x, position.y, 'enemigoY').setScale(4).setSize(50,23);
+        } else {
+            // Si el enemigo está a la derecha del jugador
+            enemy = this.physics.add.sprite(position.x, position.y, 'enemigo').setScale(1).setSize(130,150);
+        }
+        
         enemy.health = 2; // Añadir propiedad de salud al enemigo
         this.enemies.push(enemy);
         enemy.body.immovable = true; // Hacer que el enemigo sea inmóvil
@@ -162,12 +200,34 @@ spawnEnemyWave() {
         this.physics.add.collider(this.player, enemy, this.handlePlayerEnemyCollision, null, this);
     }
 }
+startEnemyWave() {
+    if (!this.isWaveActive) {
+        this.isWaveActive = true;
+
+        // Fijar la cámara en una posición específica para la oleada
+        this.cameras.main.setBounds(0, 0, map.widthInPixels, this.cameras.main.height);
+        this.cameras.main.startFollow(this.player);
+        this.isCameraFixed = true;
+
+        // Crear enemigos para la oleada
+        for (let i = 0; i < 5; i++) {
+            const spawnX = i % 2 === 0 ? 100 : this.cameras.main.width - 100;
+            const spawnY = Phaser.Math.Between(100, this.cameras.main.height - 100);
+            const enemy = this.physics.add.sprite(spawnX, spawnY, 'enemy').setScale(1);
+            // Configurar otras propiedades del enemigo, como colisiones, animaciones, etc.
+            this.enemies.push(enemy);
+        }
+
+        // Reiniciar el índice para el siguiente spawn de oleada
+        this.enemyIndex = 0;
+    }
+}
 //colisiones entre jugador y enemigo
 handlePlayerEnemyCollision(player, enemy) {
+
     if (this.playerState === 'attack') {
         // Reducir la salud del enemigo al ser atacado por el jugador
         this.reduceEnemyHealth(enemy, 1);
-
         // Verificar si el enemigo ha sido derrotado
         if (enemy.health <= 0) {
             // Eliminar al enemigo
@@ -176,7 +236,6 @@ handlePlayerEnemyCollision(player, enemy) {
             this.score += 10; // Puedes ajustar la cantidad de puntos que se acumulan por derrotar a un enemigo
             this.scoreText.setText(`Score: ${this.score}`);
         }
-
         this.playerState = 'idle'; // Volver al estado idle después de atacar
     } else {
         // Reducir la salud del jugador si no está atacando
@@ -185,31 +244,28 @@ handlePlayerEnemyCollision(player, enemy) {
 }
 //ataque del enemigo
 handleEnemyAttack(enemy) {
-    // Crear una hitbox para el ataque del enemigo
-    const attackHitbox = this.add.rectangle(enemy.x, enemy.y, 150, 100);
-    this.physics.world.enable(attackHitbox);
-    this.physics.add.overlap(attackHitbox, this.player, () => {
-        this.currentHealth -= 1; // Reducir la vida del jugador al ser atacado
-        this.updateHealthBar(); // Actualizar la barra de vida
-        attackHitbox.destroy(); // Destruir la hitbox después de la colisión
-        if (this.currentHealth <= 0) {
-            this.player.setTint(0xff0000); // Cambiar color del jugador a rojo
-            this.player.anims.play('idle'); // Reproducir animación de idle
-            this.physics.pause(); // Pausar el juego
-            this.scene.launch('gameOver');
-            this.scene.pause();
-        }
-    });
-    // Destruir la hitbox después de un tiempo
-    this.time.delayedCall(500, () => {
-        attackHitbox.destroy();
-    });
+    if (enemy.active && enemy.isAttacking) {
+        const attackHitbox = this.add.rectangle(enemy.x, enemy.y, 150, 100);
+        this.physics.world.enable(attackHitbox);
+        this.physics.add.overlap(attackHitbox, this.player, () => {
+            if (enemy.active && enemy.isAttacking) {
+                this.reducePlayerHealth(1); // Reducir la vida del jugador al ser atacado por el enemigo
+            }
+            attackHitbox.destroy();
+        });
+        this.time.delayedCall(500, () => {
+            attackHitbox.destroy();
+        });
+    }
 }
 //vida del enemigo (muerte)
 reduceEnemyHealth(enemy, amount) {
     enemy.health -= amount; // Reducir la vida del enemigo
     if (enemy.health <= 0) {
         enemy.destroy(); // Eliminar al enemigo si su vida llega a cero
+        // Incrementar el score
+        this.score += 10; // Ajusta la cantidad de puntos según sea necesario
+        this.scoreText.setText(`Score: ${this.score}`);
     }
 }
   update() {
@@ -234,7 +290,29 @@ reduceEnemyHealth(enemy, amount) {
       }  
       this.checkForEnemies(); // Verificar si hay enemigos en pantalla
       this.moveEnemiesTowardsPlayer(); // Mover enemigos hacia el jugador
+      if (this.isCameraFixed) {
+        this.cameras.main.startFollow(this.player);
+    }
+    // Verificar si hay enemigos activos en la oleada
+    if (this.isWaveActive) {
+        const activeEnemies = this.enemies.filter(enemy => enemy.active);
+        if (activeEnemies.length === 0) {
+            // Si no hay enemigos activos, comenzar una nueva oleada después de un breve retardo
+            this.time.delayedCall(2000, () => {
+                this.isWaveActive = false;
+                this.isCameraFixed = false; // Permitir que la cámara siga al jugador de nuevo
+                this.cameras.main.startFollow(this.player);
+                this.startEnemyWave();
+            });
+        }
+    }
+    if (this.currentHealth <= 0) {
+        this.scene.start('gameOver'); // Cambiar a la escena de Game Over
+    }
   }
+  handlePlayerDeath() {
+    this.scene.start('gameOver', { score: this.score });
+}
  //estado idle
   handleIdleState() {
       if (this.isPlayerMoving()) {
@@ -328,6 +406,7 @@ reduceEnemyHealth(enemy, amount) {
 //crear barra de vida
   createHealthBar() {
       const numHearts = Math.ceil(this.maxHealth / 2); // Número de corazones necesarios
+      this.hearts = [];
       for (let i = 0; i < numHearts; i++) {
           const heart = this.add.sprite(10 + i * 32, 10, 'heart', 0).setScale(4).setOrigin(0);
           heart.setScrollFactor(0); // Mantiene los corazones fijos en la pantalla
@@ -349,23 +428,31 @@ reduceEnemyHealth(enemy, amount) {
             this.hearts[i].setFrame(4); // Corazón vacío
         }
     }
+
+    this.hearts.forEach((heart, index) => {
+        heart.setVisible(index < this.currentHealth);
+    });
 }
 
 //verificador de enemigos en pantalla
-checkForEnemies() {
-    this.enemies = this.enemies.filter(enemy => enemy.active); // Eliminar enemigos desactivados del array
-    if (this.enemies.length === 0) {
-        this.spawnEnemyWave(); // Generar una nueva oleada si no hay enemigos en pantalla
-    }
-}
+
 //reducir vida del jugador
 reducePlayerHealth(amount) {
-    this.currentHealth = Math.max(this.currentHealth - amount, 0); // Asegurar que la salud no sea menor a 0
-    this.updateHealthBar();
+    if (!this.isPlayerInvulnerable) {
+        this.currentHealth = Math.max(this.currentHealth - amount, 0); // Asegurar que la salud no sea menor a 0
+        this.updateHealthBar();
 
-    if (this.currentHealth <= 0) {
-        // Manejar la muerte del jugador (mostrar mensaje, reiniciar juego, etc.)
-        console.log('Player is dead');
+        if (this.currentHealth <= 0) {
+            this.handlePlayerDeath();
+        } else {
+            // Activar invulnerabilidad temporal
+            this.isPlayerInvulnerable = true;
+            this.time.delayedCall(3000, () => {
+                this.isPlayerInvulnerable = false;
+            });
+        }
     }
 }
+//variable de gameover
+
 }

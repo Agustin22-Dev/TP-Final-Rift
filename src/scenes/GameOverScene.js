@@ -2,7 +2,9 @@ export default class GameOverScene extends Phaser.Scene {
     constructor() {
         super('gameOver');
     }
-
+    init(data) {
+        this.score = data.score || 0;
+    }
     create() {
         // Mensaje de Game Over
         const gameOverText = this.add.text(
@@ -12,6 +14,13 @@ export default class GameOverScene extends Phaser.Scene {
             { fontFamily: 'Arial', fontSize: 48, color: '#ffffff' }
         );
         gameOverText.setOrigin(0.5);
+    //score total
+        this.add.text(
+            this.cameras.main.centerX,
+            this.cameras.main.centerY,
+            `Score: ${this.score}`,
+            { fontFamily: 'Arial', fontSize: 36, color: '#ffffff' }
+        ).setOrigin(0.5);
 
         // Opción para reiniciar el juego
         const restartText = this.add.text(

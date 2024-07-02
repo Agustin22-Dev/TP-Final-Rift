@@ -9,6 +9,7 @@ export default class preload extends Phaser.Scene
     preload(){
         this.load.image('calles','public/tilemaps/escenario.png')
         this.load.image('enemigo','public/assets/enemigo.png')
+        this.load.image('enemigoY','public/assets/enemigoY.png')
         this.load.tilemapTiledJSON('tilemap','public/tilemaps/escenario.json')
         this.load.image('title','public/assets/Title.png')
         this.load.spritesheet('idle','public/assets/idle.png',{
