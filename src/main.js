@@ -1,6 +1,8 @@
 import game from './scenes/game.js';
 import preload from './scenes/preload.js'
 import menu from './scenes/menu.js'
+import GameOverScene from './scenes/GameOverScene.js';
+import ControlsScene from './scenes/ControlsScene.js';
 const config = {
     title: "Riftbreaker",
     version: "0.0.1",
@@ -24,7 +26,7 @@ const config = {
         }
     },
     scene: [
-      preload,menu,game
+      preload,menu,ControlsScene,game,GameOverScene
     ]
 };
 

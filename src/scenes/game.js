@@ -1,7 +1,6 @@
 // import Player from './player.js';
 // import UI from './UI.js';
 // import Map from './map.js';
-
 export default class Game extends Phaser.Scene {
   constructor() {
       super('game');
@@ -38,12 +37,12 @@ export default class Game extends Phaser.Scene {
       // Configurar colisiones con los edificios
       edificios.setCollisionByProperty({ collides: true });
       // Debug de colisiones (opcional)
-      const debugGraphics = this.add.graphics().setAlpha(0.7);
-      edificios.renderDebug(debugGraphics, {
-          tileColor: null,
-          collidingTileColor: new Phaser.Display.Color(243, 234, 48, 255),
-          faceColor: new Phaser.Display.Color(40, 39, 37, 255)
-      });
+    //   const debugGraphics = this.add.graphics().setAlpha(0.7);
+    //   edificios.renderDebug(debugGraphics, {
+    //       tileColor: null,
+    //       collidingTileColor: new Phaser.Display.Color(243, 234, 48, 255),
+    //       faceColor: new Phaser.Display.Color(40, 39, 37, 255)
+    //   });
       //puntos de spawn
       this.spawnPoints = [
         { x: 900, y: 600 }
@@ -70,12 +69,6 @@ export default class Game extends Phaser.Scene {
       // Teclas de control
       this.cursors = this.input.keyboard.createCursorKeys();
       this.attackKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-
-      // Enemigo (solo como ejemplo)
-      this.enemigo = this.physics.add.image(700, 500, 'enemigo').setScale(1);
-      this.enemigo.body.setSize(150, 150);
-      this.enemigo.body.immovable = true; // Hacer que el enemigo sea inmóvil
-      this.enemigo.body.moves = false; // Asegurar que el enemigo no empuje al jugador
      // colisión entre el jugador y el enemigo
         this.physics.add.collider(this.player, this.enemigo);
     // Detección de colisión entre hitbox de ataque y enemigo
@@ -203,6 +196,8 @@ handleEnemyAttack(enemy) {
             this.player.setTint(0xff0000); // Cambiar color del jugador a rojo
             this.player.anims.play('idle'); // Reproducir animación de idle
             this.physics.pause(); // Pausar el juego
+            this.scene.launch('gameOver');
+            this.scene.pause();
         }
     });
     // Destruir la hitbox después de un tiempo
