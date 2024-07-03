@@ -13,6 +13,7 @@ export default class preload extends Phaser.Scene
         this.load.tilemapTiledJSON('tilemap','public/tilemaps/escenario.json')
         this.load.image('title','public/assets/Title.png')
         this.load.image('life','public/assets/hearth.png')
+        this.load.image('proyectil','public/assets/proyectil.png')
         this.load.spritesheet('idle','public/assets/idle.png',{
     frameWidth:96,
     frameHeight:96

@@ -60,6 +60,11 @@ export default class Game extends Phaser.Scene {
     //       collidingTileColor: new Phaser.Display.Color(243, 234, 48, 255),
     //       faceColor: new Phaser.Display.Color(40, 39, 37, 255)
     //   });
+    //proyectiles de los enemigos
+    this.projectiles = this.physics.add.group({
+        defaultKey:'proyectil', // Nombre de la clave de la imagen del proyectil
+        maxSize: 10
+    });
       //puntos de spawn
       this.spawnPoints = [
         { x: 900, y: 600 }
@@ -81,16 +86,13 @@ export default class Game extends Phaser.Scene {
     'Coins: 0',
     { fontFamily: 'Arial', fontSize: 24, color: '#ffffff' }
     ).setOrigin(1, 0).setScrollFactor(0);
-
       // Contenedor para la barra de vida
       this.uiContainer = this.add.container();
       this.uiContainer.setScrollFactor(0); // Mantiene el contenedor fijo en la pantalla
-
       // Crear jugador y configuración física
       this.player = this.physics.add.sprite(500, 600, 'attack').setScale(1.9);
       this.player.body.setSize(50, 60);
       this.player.setCollideWorldBounds(true);
-
       // Teclas de control
       this.cursors = this.input.keyboard.createCursorKeys();
       this.attackKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
@@ -98,7 +100,8 @@ export default class Game extends Phaser.Scene {
         this.physics.add.collider(this.player, this.enemigo);
     // Detección de colisión entre hitbox de ataque y enemigo
          this.physics.add.overlap(this.player, this.enemigo, this.handlePlayerEnemyCollision, null, this);
-
+        //colision jugador y proyectil
+        this.physics.add.overlap(this.player, this.projectiles, this.handleProjectileCollision, null, this);
      // movimiento del enemigo hacia el jugador
         this.time.addEvent({
          delay: 2000, // Cada 2 segundos (ajustar según necesidad)
@@ -149,7 +152,6 @@ export default class Game extends Phaser.Scene {
   }
   moveEnemiesTowardsPlayer() {
     const speed = 50; // Velocidad de movimiento del enemigo (ajustar según necesidad)
-
     this.enemies.forEach(enemy => {
         if (enemy.active) {
             // Calcular la dirección hacia el jugador
@@ -189,7 +191,7 @@ startEnemyAttack(enemy) {
         });
     }
 }
-//spawn de enemigos
+//Apartado de enemigos
 getSpawnPointsOnXAxis() {
     const distance = 300; // Distancia desde el jugador a los puntos de spawn
     const playerX = this.player.x;
@@ -205,67 +207,35 @@ spawnEnemyWave() {
         { x: this.player.x - 300, y: this.player.y }, // A la izquierda del jugador
         { x: this.player.x + 300, y: this.player.y }, // A la derecha del jugador
     ];
-    // Aparecer cinco enemigos en puntos de aparición específicos
-    for (let i = 0; i < 5; i++) {
+    // Determinar la cantidad aleatoria de enemigos entre 1 y 5
+    const numberOfEnemies = Phaser.Math.Between(1, 5);
+    for (let i = 0; i < numberOfEnemies; i++) {
         const position = positions[i % positions.length];
         let enemy;
-
         if (position.x < this.player.x) {
             // Si el enemigo está a la izquierda del jugador
-            enemy = this.physics.add.sprite(position.x, position.y, 'enemigoY').setScale(4).setSize(35,23);
+            enemy = this.physics.add.sprite(position.x, position.y, 'enemigoY').setScale(4).setSize(35, 23);
         } else {
             // Si el enemigo está a la derecha del jugador
-            enemy = this.physics.add.sprite(position.x, position.y, 'enemigo').setScale(1).setSize(120,150);
+            enemy = this.physics.add.sprite(position.x, position.y, 'enemigo').setScale(1).setSize(120, 150);
         }
-        
         enemy.health = 2; // Añadir propiedad de salud al enemigo
         this.enemies.push(enemy);
-        enemy.body.immovable = true; // Hacer que el enemigo sea inmóvil
         // Añadir colisión entre jugador y enemigo
         this.physics.add.collider(this.player, enemy, this.handlePlayerEnemyCollision, null, this);
     }
 }
-startEnemyWave() {
-    if (!this.isWaveActive) {
-        this.isWaveActive = true;
 
-        // Fijar la cámara en una posición específica para la oleada
-        this.cameras.main.setBounds(0, 0, map.widthInPixels, this.cameras.main.height);
-        this.cameras.main.startFollow(this.player);
-        this.isCameraFixed = true;
-
-        // Crear enemigos para la oleada
-        for (let i = 0; i < 5; i++) {
-            const spawnX = i % 2 === 0 ? 100 : this.cameras.main.width - 100;
-            const spawnY = Phaser.Math.Between(100, this.cameras.main.height - 100);
-            const enemy = this.physics.add.sprite(spawnX, spawnY, 'enemy').setScale(1);
-            // Configurar otras propiedades del enemigo, como colisiones, animaciones, etc.
-            this.enemies.push(enemy);
-        }
-
-        // Reiniciar el índice para el siguiente spawn de oleada
-        this.enemyIndex = 0;
-    }
-}
 //colisiones entre jugador y enemigo
 handlePlayerEnemyCollision(player, enemy) {
-    if (this.playerState === 'attack') {
-        // Reducir la salud del enemigo al ser atacado por el jugador
-        this.reduceEnemyHealth(enemy, 1);
-        // Verificar si el enemigo ha sido derrotado
-        if (enemy.health <= 0) {
-            // Eliminar al enemigo
-            enemy.destroy();
-            // Incrementar el score
-            this.score += 10; // Ajusta la cantidad de puntos según sea necesario
-            this.scoreText.setText(`Score: ${this.score}`);
-        }
-        this.playerState = 'idle'; // Volver al estado idle después de atacar
-    } else {
-        // Reducir la salud del jugador si no está atacando
-        this.reducePlayerHealth(1);
+    enemy.health -= 1;
+    if (enemy.health <= 0) {
+        enemy.destroy();
     }
+    // Lógica adicional para manejar la colisión (por ejemplo, reducir la salud del jugador)
+    player.health -= 1;
 }
+
 //ataque del enemigo
 handleEnemyAttack(enemy) {
     if (enemy.active && enemy.isAttacking) {
@@ -282,6 +252,14 @@ handleEnemyAttack(enemy) {
         });
     }
 }
+//proyectil del enemigo
+handleProjectileCollision(player, projectile) {
+    // Lógica para manejar la colisión entre el jugador y el proyectil
+    // Por ejemplo, reducir la salud del jugador
+    player.health -= 1; // O la cantidad de daño que corresponda
+    projectile.destroy();
+}
+
 //vida del enemigo (muerte)
 reduceEnemyHealth(enemy, amount) {
     enemy.health -= amount;
@@ -292,11 +270,11 @@ reduceEnemyHealth(enemy, amount) {
         const posY = enemy.y;
         enemy.destroy();
         // Generar una moneda con cierta probabilidad
-        if (Phaser.Math.RND.frac() < 0.5) { // Ejemplo: 50% de probabilidad
+        if (Phaser.Math.RND.frac() < 0.2) { // 20%
             this.spawnCoin(posX, posY);
         }
         // Generar un corazón con cierta probabilidad
-        if (Phaser.Math.RND.frac() < 0.3) { // Ejemplo: 30% de probabilidad
+        if (Phaser.Math.RND.frac() < 0.2) { // 20% 
             this.spawnHeart(posX, posY);
         }
         this.score += 10;
@@ -331,6 +309,11 @@ updateCoinCount() {
     this.coinText.setText(`Coins: ${this.coinsCollected}`);
 }
   update() {
+    this.enemies.forEach(enemy => {
+        if (enemy && enemy.body) {
+            this.physics.moveToObject(enemy, this.player, 100); // Velocidad de seguimiento de 100
+        }
+    });
       // Verificar si el jugador está atacando
       if (Phaser.Input.Keyboard.JustDown(this.attackKey)) {
           if (this.playerState !== 'attack' && this.playerState !== 'move') {
@@ -467,7 +450,7 @@ updateCoinCount() {
       const numHearts = Math.ceil(this.maxHealth / 2); // Número de corazones necesarios
       this.hearts = [];
       for (let i = 0; i < numHearts; i++) {
-          const heart = this.add.sprite(10 + i * 32, 10, 'heart', 0).setScale(4).setOrigin(0);
+          const heart = this.add.sprite(10 + i * 32, 10, 'heart', 0).setScale(5).setOrigin(0);
           heart.setScrollFactor(0); // Mantiene los corazones fijos en la pantalla
           this.hearts.push(heart);
       }
