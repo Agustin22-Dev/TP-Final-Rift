@@ -176,7 +176,7 @@ startEnemyAttack(enemy) {
     if (enemy.active && !enemy.isAttacking) {
         enemy.isAttacking = true;
         // Aquí puedes implementar el tipo de ataque que desees, como crear una hitbox de ataque y reducir la salud del jugador
-        const attackHitbox = this.add.rectangle(enemy.x, enemy.y, 150, 100);
+        const attackHitbox = this.add.rectangle(enemy.x, enemy.y, 250, 100);
         this.physics.world.enable(attackHitbox);
         
         this.physics.add.overlap(attackHitbox, this.player, () => {
@@ -203,37 +203,50 @@ getSpawnPointsOnXAxis() {
     ];
 }
 spawnEnemyWave() {
-    const positions = [
-        { x: this.player.x - 300, y: this.player.y }, // A la izquierda del jugador
-        { x: this.player.x + 300, y: this.player.y }, // A la derecha del jugador
-    ];
-    // Determinar la cantidad aleatoria de enemigos entre 1 y 5
-    const numberOfEnemies = Phaser.Math.Between(1, 5);
-    for (let i = 0; i < numberOfEnemies; i++) {
-        const position = positions[i % positions.length];
-        let enemy;
-        if (position.x < this.player.x) {
-            // Si el enemigo está a la izquierda del jugador
-            enemy = this.physics.add.sprite(position.x, position.y, 'enemigoY').setScale(4).setSize(35, 23);
-        } else {
-            // Si el enemigo está a la derecha del jugador
-            enemy = this.physics.add.sprite(position.x, position.y, 'enemigo').setScale(1).setSize(120, 150);
-        }
-        enemy.health = 2; // Añadir propiedad de salud al enemigo
-        this.enemies.push(enemy);
-        // Añadir colisión entre jugador y enemigo
-        this.physics.add.collider(this.player, enemy, this.handlePlayerEnemyCollision, null, this);
+    const positionLeft = { x: this.player.x - 300, y: this.player.y }; // Posición a la izquierda del jugador
+    const positionRight = { x: this.player.x + 300, y: this.player.y }; // Posición a la derecha del jugador
+    // Incrementar el contador de oleadas normales
+    this.enemyWaveCount++;
+    // Decidir si la siguiente oleada debe ser especial
+    if (this.enemyWaveCount >= 3) {
+        this.specialWaveActive = true;
+        this.enemyWaveCount = 0; // Reiniciar el contador de oleadas normales
+    } else {
+        this.specialWaveActive = false;
+    }
+    // Crear enemigos normales a la derecha y la izquierda
+    const enemyLeft = this.physics.add.sprite(positionLeft.x, positionLeft.y, 'enemigoizq').setScale(1).setSize(50, 45);
+    const enemyRight = this.physics.add.sprite(positionRight.x, positionRight.y, 'enemigo').setScale(1).setSize(120, 150);
+    // Establecer vida y otras propiedades de los enemigos normales
+    enemyLeft.health = 3;
+    enemyRight.health = 3;
+    // Agregar enemigos normales al array
+    this.enemies.push(enemyRight);
+    // Añadir colisión entre jugador y enemigo derecho
+    this.physics.add.collider(this.player, enemyRight, this.handlePlayerEnemyCollision, null, this);
+    // Decidir si aparece el enemigo especial izquierdo
+    if (this.specialWaveActive && Phaser.Math.RND.frac() < 1) { // 50% de probabilidad para enemigo especial
+        const specialEnemyLeft = this.physics.add.sprite(positionLeft.x, positionLeft.y, 'enemigoY').setScale(3).setSize(60, 50);
+        specialEnemyLeft.health = 6; // Establecer más vida al enemigo especial izquierdo
+        this.enemies.push(specialEnemyLeft); // Agregar enemigo especial izquierdo al array
+        // Añadir colisión entre jugador y enemigo especial izquierdo
+        this.physics.add.collider(this.player, specialEnemyLeft, this.handleSpecialEnemyCollision, null, this);
+    } else {
+        // Si no aparece el enemigo especial, crear enemigo normal izquierdo
+        this.enemies.push(enemyLeft); // Agregar enemigo normal izquierdo al array
+        // Añadir colisión entre jugador y enemigo izquierdo
+        this.physics.add.collider(this.player, enemyLeft, this.handlePlayerEnemyCollision, null, this);
     }
 }
 
-//colisiones entre jugador y enemigo
-handlePlayerEnemyCollision(player, enemy) {
-    enemy.health -= 1;
+
+handlePlayerAttackCollision(enemy, attack) {
+    enemy.health -= 1; // Reducir la salud del enemigo en 1
     if (enemy.health <= 0) {
         enemy.destroy();
+        this.enemies = this.enemies.filter(e => e !== enemy); // Remover el enemigo de la lista
     }
-    // Lógica adicional para manejar la colisión (por ejemplo, reducir la salud del jugador)
-    player.health -= 1;
+    attack.destroy(); // Destruir el ataque después de la colisión
 }
 
 //ataque del enemigo
@@ -252,14 +265,6 @@ handleEnemyAttack(enemy) {
         });
     }
 }
-//proyectil del enemigo
-handleProjectileCollision(player, projectile) {
-    // Lógica para manejar la colisión entre el jugador y el proyectil
-    // Por ejemplo, reducir la salud del jugador
-    player.health -= 1; // O la cantidad de daño que corresponda
-    projectile.destroy();
-}
-
 //vida del enemigo (muerte)
 reduceEnemyHealth(enemy, amount) {
     enemy.health -= amount;
@@ -475,25 +480,31 @@ updateCoinCount() {
         heart.setVisible(index < this.currentHealth);
     });
 }
-
 //verificador de enemigos en pantalla
-
 //reducir vida del jugador
 reducePlayerHealth(amount) {
     if (!this.isPlayerInvulnerable) {
-        this.currentHealth = Math.max(this.currentHealth - amount, 0); // Asegurar que la salud no sea menor a 0
+        // Tintar al jugador de rojo temporalmente al recibir daño
+        this.player.setTint(0xff0000); // Tinte rojo
+        // Después de un segundo, quitar el tinte rojo y reducir la salud del jugador
+        this.time.delayedCall(500, () => {
+            this.player.clearTint(); // Quitar el tinte rojo
+        });
+        // Reducir la salud del jugador
+        this.currentHealth = Math.max(this.currentHealth - amount, 0);
         this.updateHealthBar();
         if (this.currentHealth <= 0) {
             this.handlePlayerDeath();
         } else {
             // Activar invulnerabilidad temporal
             this.isPlayerInvulnerable = true;
-            this.time.delayedCall(3000, () => {
+            this.time.delayedCall(2000, () => {
                 this.isPlayerInvulnerable = false;
             });
         }
     }
 }
+
 //variable de gameover
 handlePlayerDeath() {
     this.scene.start('gameOver', { score: this.score, coinsCollected: this.coinsCollected });
