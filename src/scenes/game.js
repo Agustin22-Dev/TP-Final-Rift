@@ -1,7 +1,7 @@
 // import Player from './player.js';
 // import UI from './UI.js';
 // import Map from './map.js';
-export default class Game extends Phaser.Scene {
+export default class game extends Phaser.Scene {
   constructor() {
       super('game');
       //todos los arrays y indices necesarios para las funciones
